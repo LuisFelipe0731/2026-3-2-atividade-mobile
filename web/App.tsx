@@ -15,6 +15,7 @@ import {
   Home,
   ListTodo,
   MapPin,
+  Pencil,
   Plus,
   Sparkles,
   Trash2,
@@ -43,10 +44,59 @@ const colors = {
   green: '#3D795E',
 };
 
-const initialTasks = [
-  { id: 'app', title: 'Finalizar tela inicial do app', detail: 'React Native · hoje', done: false },
-  { id: 'api', title: 'Revisar integração com a API', detail: 'Programação orientada a serviços', done: true },
+type Task = {
+  id: string;
+  title: string;
+  detail: string;
+  dueDate: string;
+  done: boolean;
+};
+
+type TaskFilter = 'todas' | 'pendentes' | 'concluidas';
+
+type StudentProfile = {
+  name: string;
+  handle: string;
+  course: string;
+  campus: string;
+  subject: string;
+  semester: string;
+};
+
+const initialProfile: StudentProfile = {
+  name: 'Luis Felipe Rodrigues Freire',
+  handle: '@LuisFelipe0731',
+  course: 'Técnico em Informática para Internet',
+  campus: 'DIATINF · IFRN Campus Natal-Central',
+  subject: 'Programação orientada a serviços',
+  semester: '2026.3',
+};
+
+function isStudentProfile(value: unknown): value is StudentProfile {
+  if (typeof value !== 'object' || value === null) return false;
+  const profile = value as Record<string, unknown>;
+  return typeof profile.name === 'string'
+    && typeof profile.handle === 'string'
+    && typeof profile.course === 'string'
+    && typeof profile.campus === 'string'
+    && typeof profile.subject === 'string'
+    && typeof profile.semester === 'string';
+}
+
+const initialTasks: Task[] = [
+  { id: 'app', title: 'Finalizar tela inicial do app', detail: 'React Native', dueDate: '2026-10-05', done: false },
+  { id: 'api', title: 'Revisar integração com a API', detail: 'Programação orientada a serviços', dueDate: '2026-10-08', done: true },
 ];
+
+function isTask(value: unknown): value is Task {
+  if (typeof value !== 'object' || value === null) return false;
+  const task = value as Record<string, unknown>;
+  return typeof task.id === 'string'
+    && typeof task.title === 'string'
+    && typeof task.detail === 'string'
+    && typeof task.dueDate === 'string'
+    && typeof task.done === 'boolean';
+}
 
 const weekDays = [
   { day: 5, label: 'SEG', fullLabel: 'SEGUNDA-FEIRA' },
@@ -154,12 +204,75 @@ const initialNotifications: NotificationItem[] = [
 export default function App() {
   const [activeTab, setActiveTab] = useState<ScreenId>('inicio');
   const [tasks, setTasks] = useState(initialTasks);
+  const [tasksReady, setTasksReady] = useState(false);
+  const [profile, setProfile] = useState(initialProfile);
+  const [profileReady, setProfileReady] = useState(false);
   const [notifications, setNotifications] = useState(initialNotifications);
   const [selectedAgendaDay, setSelectedAgendaDay] = useState(5);
   const [agendaEntries, setAgendaEntries] = useState(initialAgenda);
   const [agendaReady, setAgendaReady] = useState(false);
   const completedTasks = tasks.filter((task) => task.done).length;
   const unreadCount = notifications.filter((notification) => !notification.read).length;
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadProfile() {
+      try {
+        const savedProfile = await AsyncStorage.getItem('@diatinf/profile');
+        if (!savedProfile || !mounted) return;
+        const parsedProfile: unknown = JSON.parse(savedProfile);
+        if (isStudentProfile(parsedProfile)) setProfile(parsedProfile);
+      } catch (error) {
+        console.warn('Não foi possível carregar o perfil salvo.', error);
+      } finally {
+        if (mounted) setProfileReady(true);
+      }
+    }
+
+    void loadProfile();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!profileReady) return;
+    AsyncStorage.setItem('@diatinf/profile', JSON.stringify(profile)).catch((error) => {
+      console.warn('Não foi possível salvar o perfil.', error);
+    });
+  }, [profile, profileReady]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadTasks() {
+      try {
+        const savedTasks = await AsyncStorage.getItem('@diatinf/tasks');
+        if (!savedTasks || !mounted) return;
+        const parsedTasks: unknown = JSON.parse(savedTasks);
+        if (Array.isArray(parsedTasks) && parsedTasks.every(isTask)) {
+          setTasks(parsedTasks);
+        }
+      } catch (error) {
+        console.warn('Não foi possível carregar as tarefas salvas.', error);
+      } finally {
+        if (mounted) setTasksReady(true);
+      }
+    }
+
+    void loadTasks();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!tasksReady) return;
+    AsyncStorage.setItem('@diatinf/tasks', JSON.stringify(tasks)).catch((error) => {
+      console.warn('Não foi possível salvar as tarefas.', error);
+    });
+  }, [tasks, tasksReady]);
 
   useEffect(() => {
     let mounted = true;
@@ -198,6 +311,17 @@ export default function App() {
         task.id === id ? { ...task, done: !task.done } : task,
       ),
     );
+  }
+
+  function addTask(task: Omit<Task, 'id' | 'done'>) {
+    setTasks((currentTasks) => [
+      { ...task, id: `${Date.now()}-${currentTasks.length}`, done: false },
+      ...currentTasks,
+    ]);
+  }
+
+  function removeTask(id: string) {
+    setTasks((currentTasks) => currentTasks.filter((task) => task.id !== id));
   }
 
   function openNotification(notification: NotificationItem) {
@@ -343,37 +467,17 @@ export default function App() {
           )}
 
           {activeTab === 'tarefas' && (
-            <View style={styles.pageContent}>
-              <Text style={styles.eyebrow}>ORGANIZE SUAS ENTREGAS</Text>
-              <Text style={styles.pageTitle}>Suas tarefas</Text>
-              <Text style={styles.subtitle}>{completedTasks} de {tasks.length} atividades concluídas.</Text>
-              <View style={styles.progressTrack}>
-                <View style={[styles.progressFill, { width: `${tasks.length ? (completedTasks / tasks.length) * 100 : 0}%` }]} />
-              </View>
-              <Text style={styles.listHeading}>PARA ESTA SEMANA</Text>
-              <TaskList tasks={tasks} onToggle={toggleTask} />
-              <View style={styles.tipCard}>
-                <Sparkles color={colors.orange} size={19} />
-                <Text style={styles.tipText}>Pequenos avanços também levam longe. Continue no seu ritmo.</Text>
-              </View>
-            </View>
+            <TasksPage
+              tasks={tasks}
+              completedCount={completedTasks}
+              onToggle={toggleTask}
+              onAdd={addTask}
+              onRemove={removeTask}
+            />
           )}
 
           {activeTab === 'perfil' && (
-            <View style={styles.pageContent}>
-              <Text style={styles.eyebrow}>SEU ESPAÇO ACADÊMICO</Text>
-              <Text style={styles.pageTitle}>Perfil</Text>
-              <View style={styles.profileCard}>
-                <View style={styles.profileAvatar}><Text style={styles.profileAvatarText}>LF</Text></View>
-                <Text style={styles.profileName}>Luis Felipe Rodrigues Freire</Text>
-                <Text style={styles.profileHandle}>@LuisFelipe0731</Text>
-                <View style={styles.profileDivider} />
-                <Text style={styles.profileCourse}>TÉCNICO EM INFORMÁTICA PARA INTERNET</Text>
-                <Text style={styles.profileSchool}>DIATINF · IFRN Campus Natal-Central</Text>
-              </View>
-              <View style={styles.profileInfoRow}><BookOpen color={colors.orange} size={19} /><Text style={styles.profileInfoText}>Programação orientada a serviços</Text></View>
-              <View style={styles.profileInfoRow}><Clock3 color={colors.orange} size={19} /><Text style={styles.profileInfoText}>Semestre letivo 2026.3</Text></View>
-            </View>
+            <ProfilePage profile={profile} onSave={setProfile} />
           )}
 
           {activeTab === 'notificacoes' && (
@@ -414,8 +518,6 @@ export default function App() {
   );
 }
 
-type Task = (typeof initialTasks)[number];
-
 function TaskList({ tasks, onToggle }: { tasks: Task[]; onToggle: (id: string) => void }) {
   return (
     <View style={styles.taskList}>
@@ -431,6 +533,328 @@ function TaskList({ tasks, onToggle }: { tasks: Task[]; onToggle: (id: string) =
           <ChevronRight color={colors.muted} size={17} />
         </Pressable>
       ))}
+    </View>
+  );
+}
+
+type TasksPageProps = {
+  tasks: Task[];
+  completedCount: number;
+  onToggle: (id: string) => void;
+  onAdd: (task: Omit<Task, 'id' | 'done'>) => void;
+  onRemove: (id: string) => void;
+};
+
+function TasksPage({ tasks, completedCount, onToggle, onAdd, onRemove }: TasksPageProps) {
+  const [filter, setFilter] = useState<TaskFilter>('todas');
+  const [formOpen, setFormOpen] = useState(false);
+  const [title, setTitle] = useState('');
+  const [detail, setDetail] = useState('');
+  const [dueDate, setDueDate] = useState('');
+  const pendingCount = tasks.length - completedCount;
+  const visibleTasks = tasks.filter((task) => {
+    if (filter === 'pendentes') return !task.done;
+    if (filter === 'concluidas') return task.done;
+    return true;
+  });
+  const completionPercent = tasks.length === 0 ? 0 : (completedCount / tasks.length) * 100;
+
+  function saveTask() {
+    if (!title.trim()) return;
+    onAdd({
+      title: title.trim(),
+      detail: detail.trim() || 'Sem matéria definida',
+      dueDate: dueDate.trim(),
+    });
+    setTitle('');
+    setDetail('');
+    setDueDate('');
+    setFormOpen(false);
+    setFilter('todas');
+  }
+
+  return (
+    <View style={styles.pageContent}>
+      <Text style={styles.eyebrow}>ORGANIZE SUAS ENTREGAS</Text>
+      <Text style={styles.pageTitle}>Suas tarefas</Text>
+      <Text style={styles.subtitle}>{pendingCount} em aberto · {completedCount} concluídas</Text>
+
+      <View style={styles.taskProgressTrack}>
+        <View style={[styles.progressFill, { width: `${completionPercent}%` }]} />
+      </View>
+
+      <View style={styles.taskToolbar}>
+        <View style={styles.taskFilters}>
+          {([
+            { id: 'todas', label: `Todas ${tasks.length}` },
+            { id: 'pendentes', label: `A fazer ${pendingCount}` },
+            { id: 'concluidas', label: `Feitas ${completedCount}` },
+          ] as const).map((option) => (
+            <Pressable
+              key={option.id}
+              accessibilityRole="button"
+              accessibilityState={{ selected: filter === option.id }}
+              onPress={() => setFilter(option.id)}
+              style={[styles.taskFilter, filter === option.id && styles.taskFilterActive]}
+            >
+              <Text style={[styles.taskFilterLabel, filter === option.id && styles.taskFilterLabelActive]}>
+                {option.label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => setFormOpen((isOpen) => !isOpen)}
+          style={styles.addTaskButton}
+        >
+          {formOpen ? <X color={colors.paper} size={16} /> : <Plus color={colors.paper} size={16} />}
+          <Text style={styles.addTaskButtonLabel}>{formOpen ? 'Fechar' : 'Criar'}</Text>
+        </Pressable>
+      </View>
+
+      {formOpen && (
+        <View style={styles.taskForm}>
+          <Text style={styles.formTitle}>Nova tarefa</Text>
+          <TextInput
+            accessibilityLabel="Título da tarefa"
+            maxLength={80}
+            onChangeText={setTitle}
+            placeholder="O que você precisa fazer?"
+            placeholderTextColor={colors.muted}
+            returnKeyType="done"
+            style={styles.formInput}
+            value={title}
+          />
+          <TextInput
+            accessibilityLabel="Matéria ou contexto da tarefa"
+            maxLength={70}
+            onChangeText={setDetail}
+            placeholder="Matéria ou projeto (opcional)"
+            placeholderTextColor={colors.muted}
+            style={styles.formInput}
+            value={detail}
+          />
+          <TextInput
+            accessibilityLabel="Prazo da tarefa"
+            maxLength={10}
+            onChangeText={setDueDate}
+            placeholder="Prazo · AAAA-MM-DD (opcional)"
+            placeholderTextColor={colors.muted}
+            style={styles.formInput}
+            value={dueDate}
+          />
+          <Pressable
+            accessibilityRole="button"
+            disabled={!title.trim()}
+            onPress={saveTask}
+            style={[styles.saveAgendaButton, !title.trim() && styles.saveAgendaButtonDisabled]}
+          >
+            <Text style={styles.saveAgendaButtonLabel}>Salvar tarefa</Text>
+          </Pressable>
+        </View>
+      )}
+
+      <Text style={styles.listHeading}>LISTA DE TAREFAS</Text>
+      {visibleTasks.length === 0 ? (
+        <View style={styles.emptyAgenda}>
+          <ListTodo color={colors.blue} size={25} />
+          <Text style={styles.emptyAgendaTitle}>
+            {filter === 'concluidas' ? 'Nada concluído ainda' : 'Nenhuma tarefa por aqui'}
+          </Text>
+          <Text style={styles.emptyAgendaText}>
+            {filter === 'pendentes'
+              ? 'Você não tem tarefas em aberto.'
+              : 'Crie uma tarefa para organizar seus próximos passos.'}
+          </Text>
+        </View>
+      ) : (
+        <View style={styles.taskManagerList}>
+          {visibleTasks.map((task) => (
+            <View key={task.id} style={styles.taskManagerRow}>
+              <Pressable
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: task.done }}
+                accessibilityLabel={`${task.done ? 'Reabrir' : 'Concluir'} tarefa ${task.title}`}
+                onPress={() => onToggle(task.id)}
+                style={[styles.checkbox, task.done && styles.checkboxDone]}
+              >
+                {task.done && <Check color={colors.paper} size={14} strokeWidth={3} />}
+              </Pressable>
+              <View style={styles.taskManagerCopy}>
+                <Text style={[styles.taskTitle, task.done && styles.taskTitleDone]}>{task.title}</Text>
+                <Text style={styles.taskDetail}>{task.detail}</Text>
+                {task.dueDate !== '' && (
+                  <Text style={styles.taskDueDate}>Prazo: {formatTaskDate(task.dueDate)}</Text>
+                )}
+              </View>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Excluir tarefa ${task.title}`}
+                onPress={() => onRemove(task.id)}
+                style={styles.removeTaskButton}
+              >
+                <Trash2 color={colors.muted} size={16} />
+              </Pressable>
+            </View>
+          ))}
+        </View>
+      )}
+
+      <View style={styles.tipCard}>
+        <Sparkles color={colors.orange} size={19} />
+        <Text style={styles.tipText}>Pequenos avanços também levam longe. Continue no seu ritmo.</Text>
+      </View>
+    </View>
+  );
+}
+
+function formatTaskDate(value: string) {
+  const parts = value.split('-');
+  if (parts.length !== 3) return value;
+  return `${parts[2]}/${parts[1]}/${parts[0]}`;
+}
+
+function ProfilePage({
+  profile,
+  onSave,
+}: {
+  profile: StudentProfile;
+  onSave: (profile: StudentProfile) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(profile);
+
+  function updateField(field: keyof StudentProfile, value: string) {
+    setDraft((currentDraft) => ({ ...currentDraft, [field]: value }));
+  }
+
+  function startEditing() {
+    setDraft(profile);
+    setEditing(true);
+  }
+
+  function cancelEditing() {
+    setDraft(profile);
+    setEditing(false);
+  }
+
+  function saveProfile() {
+    if (!draft.name.trim()) return;
+    onSave({
+      name: draft.name.trim(),
+      handle: draft.handle.trim(),
+      course: draft.course.trim(),
+      campus: draft.campus.trim(),
+      subject: draft.subject.trim(),
+      semester: draft.semester.trim(),
+    });
+    setEditing(false);
+  }
+
+  const initials = profile.name
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join('')
+    .toUpperCase();
+
+  return (
+    <View style={styles.pageContent}>
+      <Text style={styles.eyebrow}>SEU ESPAÇO ACADÊMICO</Text>
+      <Text style={styles.pageTitle}>Perfil</Text>
+      {editing ? (
+        <View style={styles.profileEditForm}>
+          <Text style={styles.formTitle}>Editar informações</Text>
+          <TextInput
+            accessibilityLabel="Nome completo"
+            onChangeText={(value) => updateField('name', value)}
+            placeholder="Nome completo"
+            placeholderTextColor={colors.muted}
+            style={styles.formInput}
+            value={draft.name}
+          />
+          <TextInput
+            accessibilityLabel="Usuário do GitHub"
+            autoCapitalize="none"
+            onChangeText={(value) => updateField('handle', value)}
+            placeholder="Usuário do GitHub"
+            placeholderTextColor={colors.muted}
+            style={styles.formInput}
+            value={draft.handle}
+          />
+          <TextInput
+            accessibilityLabel="Curso"
+            onChangeText={(value) => updateField('course', value)}
+            placeholder="Curso"
+            placeholderTextColor={colors.muted}
+            style={styles.formInput}
+            value={draft.course}
+          />
+          <TextInput
+            accessibilityLabel="Campus ou instituição"
+            onChangeText={(value) => updateField('campus', value)}
+            placeholder="Campus ou instituição"
+            placeholderTextColor={colors.muted}
+            style={styles.formInput}
+            value={draft.campus}
+          />
+          <TextInput
+            accessibilityLabel="Disciplina atual"
+            onChangeText={(value) => updateField('subject', value)}
+            placeholder="Disciplina atual"
+            placeholderTextColor={colors.muted}
+            style={styles.formInput}
+            value={draft.subject}
+          />
+          <TextInput
+            accessibilityLabel="Semestre letivo"
+            onChangeText={(value) => updateField('semester', value)}
+            placeholder="Semestre letivo"
+            placeholderTextColor={colors.muted}
+            style={styles.formInput}
+            value={draft.semester}
+          />
+          <View style={styles.profileFormActions}>
+            <Pressable accessibilityRole="button" onPress={cancelEditing} style={styles.cancelProfileButton}>
+              <Text style={styles.cancelProfileButtonLabel}>Cancelar</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              disabled={!draft.name.trim()}
+              onPress={saveProfile}
+              style={[styles.saveProfileButton, !draft.name.trim() && styles.saveAgendaButtonDisabled]}
+            >
+              <Check color={colors.paper} size={16} />
+              <Text style={styles.saveProfileButtonLabel}>Salvar perfil</Text>
+            </Pressable>
+          </View>
+        </View>
+      ) : (
+        <>
+          <View style={styles.profileCard}>
+            <View style={styles.profileAvatar}><Text style={styles.profileAvatarText}>{initials}</Text></View>
+            <Text style={styles.profileName}>{profile.name}</Text>
+            <Text style={styles.profileHandle}>{profile.handle}</Text>
+            <View style={styles.profileDivider} />
+            <Text style={styles.profileCourse}>{profile.course.toUpperCase()}</Text>
+            <Text style={styles.profileSchool}>{profile.campus}</Text>
+          </View>
+          <Pressable accessibilityRole="button" onPress={startEditing} style={styles.editProfileButton}>
+            <Pencil color={colors.orange} size={16} />
+            <Text style={styles.editProfileButtonLabel}>Editar perfil</Text>
+          </Pressable>
+          <View style={styles.profileInfoRow}>
+            <BookOpen color={colors.orange} size={19} />
+            <Text style={styles.profileInfoText}>{profile.subject}</Text>
+          </View>
+          <View style={styles.profileInfoRow}>
+            <Clock3 color={colors.orange} size={19} />
+            <Text style={styles.profileInfoText}>Semestre letivo {profile.semester}</Text>
+          </View>
+        </>
+      )}
     </View>
   );
 }
@@ -801,6 +1225,21 @@ const styles = StyleSheet.create({
   taskTitle: { color: colors.ink, fontSize: 12, fontWeight: '700' },
   taskTitleDone: { color: colors.muted, textDecorationLine: 'line-through' },
   taskDetail: { color: colors.muted, fontSize: 10 },
+  taskProgressTrack: { height: 7, borderRadius: 4, backgroundColor: '#E8E4D9', overflow: 'hidden', marginTop: 20, marginBottom: 20 },
+  taskToolbar: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 19 },
+  taskFilters: { flex: 1, minWidth: 0, flexDirection: 'row', gap: 4 },
+  taskFilter: { flex: 1, minWidth: 0, minHeight: 35, alignItems: 'center', justifyContent: 'center', borderRadius: 8, backgroundColor: '#F5F2EA', paddingHorizontal: 4 },
+  taskFilterActive: { backgroundColor: colors.ink },
+  taskFilterLabel: { color: colors.muted, fontSize: 9, fontWeight: '700' },
+  taskFilterLabelActive: { color: colors.paper },
+  addTaskButton: { minHeight: 35, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, borderRadius: 8, backgroundColor: colors.orange, paddingHorizontal: 9 },
+  addTaskButtonLabel: { color: colors.paper, fontSize: 10, fontWeight: '800' },
+  taskForm: { borderWidth: 1, borderColor: colors.line, borderRadius: 13, backgroundColor: '#FBF8F0', padding: 14, marginBottom: 17, gap: 10 },
+  taskManagerList: { borderWidth: 1, borderColor: colors.line, borderRadius: 13, overflow: 'hidden', backgroundColor: colors.paper, marginBottom: 19 },
+  taskManagerRow: { minHeight: 76, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 11, gap: 10, borderBottomWidth: 1, borderBottomColor: colors.line },
+  taskManagerCopy: { flex: 1, minWidth: 0, gap: 4 },
+  taskDueDate: { color: colors.orange, fontSize: 9, fontWeight: '700', marginTop: 1 },
+  removeTaskButton: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center', borderRadius: 8, backgroundColor: '#F5F2EA' },
   quoteStrip: { flexDirection: 'row', alignItems: 'center', gap: 9, borderTopWidth: 1, borderTopColor: colors.line, paddingTop: 15 },
   quoteText: { color: colors.muted, fontSize: 11, fontStyle: 'italic' },
   bottomNav: { minHeight: 68, borderTopWidth: 1, borderTopColor: colors.line, backgroundColor: colors.paper, flexDirection: 'row', justifyContent: 'space-around', paddingHorizontal: 9, paddingTop: 8, paddingBottom: 3 },
@@ -864,6 +1303,14 @@ const styles = StyleSheet.create({
   profileSchool: { color: colors.muted, fontSize: 11, marginTop: 7, textAlign: 'center' },
   profileInfoRow: { flexDirection: 'row', alignItems: 'center', gap: 11, padding: 15, borderBottomWidth: 1, borderBottomColor: colors.line },
   profileInfoText: { color: colors.ink, fontSize: 12, fontWeight: '600' },
+  editProfileButton: { minHeight: 42, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, borderWidth: 1, borderColor: colors.orange, borderRadius: 9, marginBottom: 13 },
+  editProfileButtonLabel: { color: colors.orange, fontSize: 12, fontWeight: '800' },
+  profileEditForm: { borderWidth: 1, borderColor: colors.line, borderRadius: 13, backgroundColor: '#FBF8F0', padding: 14, marginTop: 21, gap: 10 },
+  profileFormActions: { flexDirection: 'row', gap: 9, marginTop: 2 },
+  cancelProfileButton: { flex: 1, minHeight: 42, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.line, borderRadius: 8, backgroundColor: colors.paper },
+  cancelProfileButtonLabel: { color: colors.ink, fontSize: 12, fontWeight: '700' },
+  saveProfileButton: { flex: 1, minHeight: 42, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderRadius: 8, backgroundColor: colors.ink },
+  saveProfileButtonLabel: { color: colors.paper, fontSize: 12, fontWeight: '800' },
   backAction: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 6, marginBottom: 25, paddingVertical: 5 },
   backActionLabel: { color: colors.ink, fontSize: 12, fontWeight: '700' },
   notificationToolbar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 22, marginBottom: 7 },
