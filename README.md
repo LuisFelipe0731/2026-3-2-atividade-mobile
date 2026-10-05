@@ -10,6 +10,29 @@
 [A descrição da atividade](atividade.md)
 
 ---
+## Desenvolvimento
+
+### Frontend mobile/web
+
+```bash
+cd web
+npm install
+npm run web
+```
+
+Para abrir no celular com o Expo Go, execute `npx expo start` dentro de `web` e escaneie o QR code.
+
+### API
+
+```bash
+cd api
+npm install
+npm run dev
+```
+
+Verifique o servidor em `http://localhost:3001/api/health`.
+
+---
 ## Relato da atividade
 
 Luis Felipe Rodrigues Freire [LuisFelipe0731](https://github.com/LuisFelipe0731)
