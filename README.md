@@ -12,7 +12,7 @@
 ---
 ## Relato da atividade
 
-Nome do aluno e seu link do linkedin e github
+Luis Felipe Rodrigues Freire [LuisFelipe0731](https://github.com/LuisFelipe0731)
 
 ### Frontend mobile no navegador
 
