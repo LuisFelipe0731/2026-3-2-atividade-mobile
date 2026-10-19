@@ -39,10 +39,10 @@ Luis Felipe Rodrigues Freire [LuisFelipe0731](https://github.com/LuisFelipe0731)
 
 ### Frontend mobile no navegador
 
-> Publica aqui o print da aplicação react native no navegador
+(imagem2.png)
 
 ### Frontend mobile no celular
 
-> Publica aqui o print da aplicação react native no celular
+(WhatsApp Image 2026-10-19 at 14.46.27.jpeg)
 
 ---
