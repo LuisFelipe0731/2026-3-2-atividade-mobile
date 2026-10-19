@@ -43,6 +43,4 @@ Luis Felipe Rodrigues Freire [LuisFelipe0731](https://github.com/LuisFelipe0731)
 
 ### Frontend mobile no celular
 
-![tela no celular](WhatsApp Image 2026-10-19 at 14.46.27.jpeg)
-
----
+![tela no celular](Whatssap)
