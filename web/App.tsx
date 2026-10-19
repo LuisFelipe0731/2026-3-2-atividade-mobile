@@ -29,6 +29,7 @@ import {
   Text,
   TextInput,
   View,
+  useWindowDimensions,
 } from 'react-native';
 
 const colors = {
@@ -202,6 +203,8 @@ const initialNotifications: NotificationItem[] = [
 ];
 
 export default function App() {
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 900;
   const [activeTab, setActiveTab] = useState<ScreenId>('inicio');
   const [tasks, setTasks] = useState(initialTasks);
   const [tasksReady, setTasksReady] = useState(false);
@@ -349,8 +352,8 @@ export default function App() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="auto" />
-      <View style={styles.appShell}>
-        <View style={styles.topBar}>
+      <View style={[styles.appShell, isDesktop && styles.appShellDesktop]}>
+        <View style={[styles.topBar, isDesktop && styles.topBarDesktop]}>
           <View style={styles.brand}>
             <View style={styles.brandMark}>
               <Code2 color={colors.paper} size={20} strokeWidth={2.5} />
@@ -375,10 +378,30 @@ export default function App() {
           </Pressable>
         </View>
 
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
+        <View style={[styles.mainArea, isDesktop && styles.mainAreaDesktop]}>
+          {isDesktop && (
+            <View style={styles.sidebar}>
+              {tabs.map(({ id, label, icon: Icon }) => {
+                const selected = activeTab === id;
+                return (
+                  <Pressable
+                    key={id}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected }}
+                    onPress={() => setActiveTab(id)}
+                    style={[styles.sidebarNavItem, selected && styles.sidebarNavItemActive]}
+                  >
+                    <Icon color={selected ? colors.orange : colors.muted} size={20} strokeWidth={selected ? 2.4 : 1.8} />
+                    <Text style={[styles.navLabel, styles.sidebarNavLabel, selected && styles.navLabelActive]}>{label}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
+          <ScrollView
+            contentContainerStyle={[styles.scrollContent, isDesktop && styles.scrollContentDesktop]}
+            showsVerticalScrollIndicator={false}
+          >
           {activeTab === 'inicio' && (
             <>
               <View style={styles.greetingRow}>
@@ -493,9 +516,10 @@ export default function App() {
               onOpen={openNotification}
             />
           )}
-        </ScrollView>
+          </ScrollView>
+        </View>
 
-        <View style={styles.bottomNav}>
+        {!isDesktop && <View style={styles.bottomNav}>
           {tabs.map(({ id, label, icon: Icon }) => {
             const selected = activeTab === id;
             return (
@@ -512,7 +536,7 @@ export default function App() {
               </Pressable>
             );
           })}
-        </View>
+        </View>}
       </View>
     </SafeAreaView>
   );
@@ -1134,6 +1158,7 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     backgroundColor: colors.paper,
   },
+  appShellDesktop: { maxWidth: 1440 },
   topBar: {
     height: 68,
     paddingHorizontal: 22,
@@ -1143,6 +1168,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  topBarDesktop: { paddingHorizontal: 32 },
+  mainArea: { flex: 1, minHeight: 0 },
+  mainAreaDesktop: { flexDirection: 'row' },
+  sidebar: {
+    width: 220,
+    flexShrink: 0,
+    paddingHorizontal: 16,
+    paddingTop: 24,
+    borderRightWidth: 1,
+    borderRightColor: colors.line,
+    gap: 5,
+  },
+  sidebarNavItem: {
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+  },
+  sidebarNavItemActive: { backgroundColor: '#F8F1DF' },
+  sidebarNavLabel: { fontSize: 13 },
   brand: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   brandMark: {
     width: 36,
@@ -1176,6 +1223,15 @@ const styles = StyleSheet.create({
   },
   notificationBadgeText: { color: colors.paper, fontSize: 9, lineHeight: 12, fontWeight: '800' },
   scrollContent: { paddingHorizontal: 22, paddingTop: 26, paddingBottom: 28, gap: 0 },
+  scrollContentDesktop: {
+    width: '100%',
+    maxWidth: 1120,
+    alignSelf: 'center',
+    paddingHorizontal: 40,
+    paddingTop: 34,
+    paddingBottom: 40,
+    flexGrow: 1,
+  },
   greetingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 21 },
   eyebrow: { color: colors.orange, fontSize: 10, fontWeight: '800', letterSpacing: 0.75 },
   greeting: { color: colors.ink, fontSize: 27, lineHeight: 34, fontWeight: '800', marginTop: 6 },
